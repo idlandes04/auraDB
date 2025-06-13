@@ -4,7 +4,8 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from contextlib import contextmanager
 from config import DB_PATH
-from typing import Union
+from typing import Union, Tuple
+from datetime import datetime
 
 class DatabaseManager:
     def __init__(self, db_url: str = f'sqlite:///{DB_PATH}'):
@@ -29,18 +30,21 @@ class DatabaseManager:
         finally:
             session.close()
 
-    def add_record(self, pydantic_obj: Union[ontology.Task, ontology.Note, ontology.Event], expiry_date=None) -> db_models.Base:
+    def add_record(self, pydantic_obj: Union[ontology.Task, ontology.Note, ontology.Event], expiry_date: datetime = None) -> Tuple[str, int]:
         """
-        Adds a record to the database based on its Pydantic type.
-        Returns the created database object with its new ID.
+        Adds a record to the database and returns its type and new ID.
         """
         db_record = None
+        # Pydantic's .dict() is now deprecated in v2, .model_dump() is the new standard
+        # but since we are on v1 lets stick with .dict()
+        record_data = pydantic_obj.dict()
+
         if isinstance(pydantic_obj, ontology.Task):
-            db_record = db_models.Task(**pydantic_obj.dict(), expiry_date=expiry_date)
+            db_record = db_models.Task(**record_data, expiry_date=expiry_date)
         elif isinstance(pydantic_obj, ontology.Note):
-            db_record = db_models.Note(**pydantic_obj.dict(), expiry_date=expiry_date)
+            db_record = db_models.Note(**record_data, expiry_date=expiry_date)
         elif isinstance(pydantic_obj, ontology.Event):
-            db_record = db_models.Event(**pydantic_obj.dict(), expiry_date=expiry_date)
+            db_record = db_models.Event(**record_data, expiry_date=expiry_date)
         
         if not db_record:
             raise TypeError("Unsupported Pydantic object type")
@@ -48,6 +52,11 @@ class DatabaseManager:
         with self.session_scope() as session:
             session.add(db_record)
             session.flush()  # To get the ID before commit
-            session.refresh(db_record) # To load all default values
-            print(f"Added {type(db_record).__name__} with ID: {db_record.id} to DB.")
-            return db_record
+            
+            # Get the necessary info before the session closes
+            record_id = db_record.id
+            record_type = type(db_record).__name__
+            print(f"Added {record_type} with ID: {record_id} to DB.")
+
+        # Return simple, detached data, not the stateful object
+        return record_type, record_id

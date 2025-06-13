@@ -1,5 +1,3 @@
-# main.py
-
 import time
 from pydantic import ValidationError
 from datetime import datetime
@@ -28,29 +26,29 @@ def process_tool_call(db: DatabaseManager, tool_call: dict, router_result: dict)
         return f"ERROR: Unknown tool '{tool_name}'."
 
     try:
-        # Validate and create the Pydantic object
+        # Validate and create the Pydantic object from arguments
         pydantic_obj = PydanticModel(**arguments)
         
-        # --- THE FIX ---
         # Convert the expiry_date string from the router to a datetime object
         expiry_date_str = router_result.get("expiry_date")
         expiry_date_obj = None
         if expiry_date_str:
-            # The 'Z' at the end means UTC, fromisoformat handles this correctly
+            # The 'Z' at the end for Zulu/UTC is handled by fromisoformat in Python 3.11+
+            # For broader compatibility, we explicitly handle it.
             if expiry_date_str.endswith('Z'):
                 expiry_date_str = expiry_date_str[:-1] + '+00:00'
             expiry_date_obj = datetime.fromisoformat(expiry_date_str)
-        # --- END FIX ---
         
-        # Add the record to the database, now passing a datetime object
-        db_record = db.add_record(pydantic_obj, expiry_date_obj)
+        # Call the database manager and unpack the returned simple tuple
+        record_type, record_id = db.add_record(pydantic_obj, expiry_date_obj)
         
-        return f"CONFIRMED: {type(db_record).__name__} #{db_record.id} created successfully."
+        # Build the confirmation message from the simple data
+        return f"CONFIRMED: {record_type} #{record_id} created successfully."
 
     except ValidationError as e:
         return f"ERROR: Failed to validate arguments for '{tool_name}'. Details: {e}"
     except Exception as e:
-        return f"ERROR: Could not save to database. Details: {e}"
+        return f"ERROR: Could not process and save the request. Details: {e}"
 
 def main():
     print("--- Aura Phase 2: Memory Core ---")

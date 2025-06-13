@@ -1,0 +1,1125 @@
+LM Studio as a Local LLM API Server
+
+You can serve local LLMs from LM Studio's Developer tab, either on localhost or on the network.
+
+LM Studio's APIs can be used through an OpenAI compatibility mode, enhanced REST API, or through a client library like lmstudio-js.
+
+API options
+TypeScript SDK - lmstudio-js
+Python SDK - lmstudio-python
+LM Studio REST API (new, in beta)
+OpenAI Compatibility endpoints
+
+lmstudio-js (TypeScript SDK)
+
+The SDK provides you a set of programmatic tools to interact with LLMs, embeddings models, and agentic flows.
+
+Installing the SDK
+lmstudio-js is available as an npm package. You can install it using npm, yarn, or pnpm.
+
+npmyarnpnpm
+npm install @lmstudio/sdk --save
+
+For the source code and open source contribution, visit lmstudio.js on GitHub.
+
+Features
+Use LLMs to respond in chats or predict text completions
+Define functions as tools, and turn LLMs into autonomous agents that run completely locally
+Load, configure, and unload models from memory
+Supports for both browser and any Node-compatible environments
+Generate embeddings for text, and more!
+Quick Example: Chat with a Llama Model
+index.ts
+import { LMStudioClient } from "@lmstudio/sdk";
+const client = new LMStudioClient();
+
+const model = await client.llm.model("llama-3.2-1b-instruct");
+const result = await model.respond("What is the meaning of life?");
+
+console.info(result.content);
+
+Getting Local Models
+The above code requires the Llama 3.2 1B. If you don't have the model, run the following command in the terminal to download it.
+
+lms get llama-3.2-1b-instruct
+
+Read more about lms get in LM Studio's CLI here.
+
+
+lmstudio-python (Python SDK)
+
+lmstudio-python provides you a set APIs to interact with LLMs, embeddings models, and agentic flows.
+
+Installing the SDK
+lmstudio-python is available as a PyPI package. You can install it using pip.
+
+pip install lmstudio
+
+For the source code and open source contribution, visit lmstudio-python on GitHub.
+
+Features
+Use LLMs to respond in chats or predict text completions
+Define functions as tools, and turn LLMs into autonomous agents that run completely locally
+Load, configure, and unload models from memory
+Generate embeddings for text, and more!
+Quick Example: Chat with a Llama Model
+Python (convenience API)Python (scoped resource API)
+import lmstudio as lms
+
+model = lms.llm("llama-3.2-1b-instruct")
+result = model.respond("What is the meaning of life?")
+
+print(result)
+
+Getting Local Models
+The above code requires the Llama 3.2 1B model. If you don't have the model, run the following command in the terminal to download it.
+
+lms get llama-3.2-1b-instruct
+
+Read more about lms get in LM Studio's CLI here.
+
+Interactive Convenience or Deterministic Resource Management?
+As shown in the example above, there are two distinct approaches for working with the LM Studio Python SDK.
+
+The first is the interactive convenience API (listed as "Python (convenience API)" in examples), which focuses on the use of a default LM Studio client instance for convenient interactions at a Python prompt, or when using Jupyter notebooks.
+
+The second is a scoped resource API (listed as "Python (scoped resource API)" in examples), which uses context managers to ensure that allocated resources (such as network connections) are released deterministically, rather than potentially remaining open until the entire process is terminated.
+
+
+
+OpenAI Compatibility API
+
+Send requests to Chat Completions (text and images), Completions, and Embeddings endpoints.
+
+OpenAI-like API endpoints
+LM Studio accepts requests on several OpenAI endpoints and returns OpenAI-like response objects.
+
+Supported endpoints
+GET  /v1/models
+POST /v1/chat/completions
+POST /v1/embeddings
+POST /v1/completions
+
+See below for more info about each endpoint
+Re-using an existing OpenAI client
+Pro Tip
+You can reuse existing OpenAI clients (in Python, JS, C#, etc) by switching up the "base URL" property to point to your LM Studio instead of OpenAI's servers.
+
+Switching up the base url to point to LM Studio
+Note: The following examples assume the server port is 1234
+Python
+from openai import OpenAI
+
+client = OpenAI(
++    base_url="http://localhost:1234/v1"
+)
+
+# ... the rest of your code ...
+
+Typescript
+import OpenAI from 'openai';
+
+const client = new OpenAI({
++  baseUrl: "http://localhost:1234/v1"
+});
+
+// ... the rest of your code ...
+
+cURL
+- curl https://api.openai.com/v1/chat/completions \
++ curl http://localhost:1234/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -d '{
+-     "model": "gpt-4o-mini",
++     "model": "use the model identifier from LM Studio here",
+     "messages": [{"role": "user", "content": "Say this is a test!"}],
+     "temperature": 0.7
+   }'
+
+Endpoints overview
+/v1/models
+GET request
+Lists the currently loaded models.
+cURL example
+curl http://localhost:1234/v1/models
+
+/v1/chat/completions
+POST request
+Send a chat history and receive the assistant's response
+Prompt template is applied automatically
+You can provide inference parameters such as temperature in the payload. See supported parameters
+See OpenAI's documentation for more information
+As always, keep a terminal window open with lms log stream to see what input the model receives
+Python example
+# Example: reuse your existing OpenAI setup
+from openai import OpenAI
+
+# Point to the local server
+client = OpenAI(base_url="http://localhost:1234/v1", api_key="lm-studio")
+
+completion = client.chat.completions.create(
+  model="model-identifier",
+  messages=[
+    {"role": "system", "content": "Always answer in rhymes."},
+    {"role": "user", "content": "Introduce yourself."}
+  ],
+  temperature=0.7,
+)
+
+print(completion.choices[0].message)
+
+/v1/embeddings
+POST request
+Send a string or array of strings and get an array of text embeddings (integer token IDs)
+See OpenAI's documentation for more information
+Python example
+# Make sure to `pip install openai` first
+from openai import OpenAI
+client = OpenAI(base_url="http://localhost:1234/v1", api_key="lm-studio")
+
+def get_embedding(text, model="model-identifier"):
+   text = text.replace("\n", " ")
+   return client.embeddings.create(input = [text], model=model).data[0].embedding
+
+print(get_embedding("Once upon a time, there was a cat."))
+
+/v1/completions
+Heads Up
+This OpenAI-like endpoint is no longer supported by OpenAI. LM Studio continues to support it.
+
+Using this endpoint with chat-tuned models might result in unexpected behavior such as extraneous role tokens being emitted by the model.
+
+For best results, utilize a base model.
+
+POST request
+Send a string and get the model's continuation of that string
+See supported payload parameters
+Prompt template will NOT be applied, even if the model has one
+See OpenAI's documentation for more information
+As always, keep a terminal window open with lms log stream to see what input the model receives
+Supported payload parameters
+For an explanation for each parameter, see https://platform.openai.com/docs/api-reference/chat/create.
+
+model
+top_p
+top_k
+messages
+temperature
+max_tokens
+stream
+stop
+presence_penalty
+frequency_penalty
+logit_bias
+repeat_penalty
+seed
+
+
+
+Idle TTL and Auto-Evict
+
+ℹ️ Requires LM Studio 0.3.9 (b1), currently in beta. Download from here
+
+LM Studio 0.3.9 (b1) introduces the ability to set a time-to-live (TTL) for API models, and optionally auto-evict previously loaded models before loading new ones.
+
+These features complement LM Studio's on-demand model loading (JIT) to automate efficient memory management and reduce the need for manual intervention.
+
+Background
+JIT loading makes it easy to use your LM Studio models in other apps: you don't need to manually load the model first before being able to use it. However, this also means that models can stay loaded in memory even when they're not being used. [Default: enabled]
+
+(New) Idle TTL (technically: Time-To-Live) defines how long a model can stay loaded in memory without receiving any requests. When the TTL expires, the model is automatically unloaded from memory. You can set a TTL using the ttl field in your request payload. [Default: 60 minutes]
+
+(New) Auto-Evict is a feature that unloads previously JIT loaded models before loading new ones. This enables easy switching between models from client apps without having to manually unload them first. You can enable or disable this feature in Developer tab > Server Settings. [Default: enabled]
+
+Idle TTL
+Use case: imagine you're using an app like Zed, Cline, or Continue.dev to interact with LLMs served by LM Studio. These apps leverage JIT to load models on-demand the first time you use them.
+
+Problem: When you're not actively using a model, you might don't want it to remain loaded in memory.
+
+Solution: Set a TTL for models loaded via API requests. The idle timer resets every time the model receives a request, so it won't disappear while you use it. A model is considered idle if it's not doing any work. When the idle TTL expires, the model is automatically unloaded from memory.
+
+Set App-default Idle TTL
+By default, JIT-loaded models have a TTL of 60 minutes. You can configure a default TTL value for any model loaded via JIT like so:
+
+undefined
+Set a default TTL value. Will be used for all JIT loaded models unless specified otherwise in the request payload
+
+Set per-model TTL-model in API requests
+When JIT loading is enabled, the first request to a model will load it into memory. You can specify a TTL for that model in the request payload.
+
+This works for requests targeting both the OpenAI compatibility API and the LM Studio's REST API:
+
+
+curl http://localhost:1234/api/v0/chat/completions \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "deepseek-r1-distill-qwen-7b",
++   "ttl": 300,
+    "messages": [ ... ]
+}'
+
+This will set a TTL of 5 minutes (300 seconds) for this model if it is JIT loaded.
+Set TTL for models loaded with lms
+By default, models loaded with lms load do not have a TTL, and will remain loaded in memory until you manually unload them.
+
+You can set a TTL for a model loaded with lms like so:
+
+lms load <model> --ttl 3600
+
+Load a <model> with a TTL of 1 hour (3600 seconds)
+Specify TTL when loading models in the server tab
+You can also set a TTL when loading a model in the server tab like so
+
+undefined
+Set a TTL value when loading a model in the server tab
+
+Configure Auto-Evict for JIT loaded models
+With this setting, you can ensure new models loaded via JIT automatically unload previously loaded models first.
+
+This is useful when you want to switch between models from another app without worrying about memory building up with unused models.
+
+undefined
+Enable or disable Auto-Evict for JIT loaded models in the Developer tab > Server Settings
+
+When Auto-Evict is ON (default):
+
+At most 1 model is kept loaded in memory at a time (when loaded via JIT)
+Non-JIT loaded models are not affected
+When Auto-Evict is OFF:
+
+Switching models from an external app will keep previous models loaded in memory
+Models will remain loaded until either:
+Their TTL expires
+You manually unload them
+This feature works in tandem with TTL to provide better memory management for your workflow.
+
+Nomenclature
+TTL: Time-To-Live, is a term borrowed from networking protocols and cache systems. It defines how long a resource can remain allocated before it's considered stale and evicted.
+
+
+Structured Output
+
+You can enforce a particular response format from an LLM by providing a JSON schema to the /v1/chat/completions endpoint, via LM Studio's REST API (or via any OpenAI client).
+
+Start LM Studio as a server
+To use LM Studio programatically from your own code, run LM Studio as a local server.
+
+You can turn on the server from the "Developer" tab in LM Studio, or via the lms CLI:
+
+lms server start
+
+Install lms by running npx lmstudio install-cli
+This will allow you to interact with LM Studio via an OpenAI-like REST API. For an intro to LM Studio's OpenAI-like API, see Running LM Studio as a server.
+
+
+Structured Output
+The API supports structured JSON outputs through the /v1/chat/completions endpoint when given a JSON schema. Doing this will cause the LLM to respond in valid JSON conforming to the schema provided.
+
+It follows the same format as OpenAI's recently announced Structured Output API and is expected to work via the OpenAI client SDKs.
+
+Example using curl
+
+This example demonstrates a structured output request using the curl utility.
+
+To run this example on Mac or Linux, use any terminal. On Windows, use Git Bash.
+
+curl http://{{hostname}}:{{port}}/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "{{model}}",
+    "messages": [
+      {
+        "role": "system",
+        "content": "You are a helpful jokester."
+      },
+      {
+        "role": "user",
+        "content": "Tell me a joke."
+      }
+    ],
+    "response_format": {
+      "type": "json_schema",
+      "json_schema": {
+        "name": "joke_response",
+        "strict": "true",
+        "schema": {
+          "type": "object",
+          "properties": {
+            "joke": {
+              "type": "string"
+            }
+          },
+        "required": ["joke"]
+        }
+      }
+    },
+    "temperature": 0.7,
+    "max_tokens": 50,
+    "stream": false
+  }'
+
+All parameters recognized by /v1/chat/completions will be honored, and the JSON schema should be provided in the json_schema field of response_format.
+
+The JSON object will be provided in string form in the typical response field, choices[0].message.content, and will need to be parsed into a JSON object.
+
+Example using python
+
+from openai import OpenAI
+import json
+
+# Initialize OpenAI client that points to the local LM Studio server
+client = OpenAI(
+    base_url="http://localhost:1234/v1",
+    api_key="lm-studio"
+)
+
+# Define the conversation with the AI
+messages = [
+    {"role": "system", "content": "You are a helpful AI assistant."},
+    {"role": "user", "content": "Create 1-3 fictional characters"}
+]
+
+# Define the expected response structure
+character_schema = {
+    "type": "json_schema",
+    "json_schema": {
+        "name": "characters",
+        "schema": {
+            "type": "object",
+            "properties": {
+                "characters": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "name": {"type": "string"},
+                            "occupation": {"type": "string"},
+                            "personality": {"type": "string"},
+                            "background": {"type": "string"}
+                        },
+                        "required": ["name", "occupation", "personality", "background"]
+                    },
+                    "minItems": 1,
+                }
+            },
+            "required": ["characters"]
+        },
+    }
+}
+
+# Get response from AI
+response = client.chat.completions.create(
+    model="your-model",
+    messages=messages,
+    response_format=character_schema,
+)
+
+# Parse and display the results
+results = json.loads(response.choices[0].message.content)
+print(json.dumps(results, indent=2))
+
+Important: Not all models are capable of structured output, particularly LLMs below 7B parameters.
+
+Check the model card README if you are unsure if the model supports structured output.
+
+Structured output engine
+For GGUF models: utilize llama.cpp's grammar-based sampling APIs.
+For MLX models: using Outlines.
+The MLX implementation is available on Github: lmstudio-ai/mlx-engine.
+
+
+Tool Use
+
+Tool use enables LLMs to request calls to external functions and APIs through the /v1/chat/completions endpoint, via LM Studio's REST API (or via any OpenAI client). This expands their functionality far beyond text output.
+
+🔔 Tool use requires LM Studio 0.3.6 or newer, get it here
+
+Quick Start
+1. Start LM Studio as a server
+To use LM Studio programmatically from your own code, run LM Studio as a local server.
+
+You can turn on the server from the "Developer" tab in LM Studio, or via the lms CLI:
+
+lms server start
+
+Install lms by running npx lmstudio install-cli
+This will allow you to interact with LM Studio via an OpenAI-like REST API. For an intro to LM Studio's OpenAI-like API, see Running LM Studio as a server.
+
+2. Load a Model
+You can load a model from the "Chat" or "Developer" tabs in LM Studio, or via the lms CLI:
+
+lms load
+
+3. Copy, Paste, and Run an Example!
+Curl
+Single Turn Tool Call Request
+Python
+Single Turn Tool Call + Tool Use
+Multi-Turn Example
+Advanced Agent Example
+
+Tool Use
+What really is "Tool Use"?
+Tool use describes:
+
+LLMs output text requesting functions to be called (LLMs cannot directly execute code)
+Your code executes those functions
+Your code feeds the results back to the LLM.
+High-level flow
+┌──────────────────────────┐
+│ SETUP: LLM + Tool list   │
+└──────────┬───────────────┘
+           ▼
+┌──────────────────────────┐
+│    Get user input        │◄────┐
+└──────────┬───────────────┘     │
+           ▼                     │
+┌──────────────────────────┐     │
+│ LLM prompted w/messages  │     │
+└──────────┬───────────────┘     │
+           ▼                     │
+     Needs tools?                │
+      │         │                │
+    Yes         No               │
+      │         │                │
+      ▼         └────────────┐   │
+┌─────────────┐              │   │
+│Tool Response│              │   │
+└──────┬──────┘              │   │
+       ▼                     │   │
+┌─────────────┐              │   │
+│Execute tools│              │   │
+└──────┬──────┘              │   │
+       ▼                     ▼   │
+┌─────────────┐          ┌───────────┐
+│Add results  │          │  Normal   │
+│to messages  │          │ response  │
+└──────┬──────┘          └─────┬─────┘
+       │                       ▲
+       └───────────────────────┘
+
+In-depth flow
+LM Studio supports tool use through the /v1/chat/completions endpoint when given function definitions in the tools parameter of the request body. Tools are specified as an array of function definitions that describe their parameters and usage, like:
+
+It follows the same format as OpenAI's Function Calling API and is expected to work via the OpenAI client SDKs.
+
+We will use lmstudio-community/Qwen2.5-7B-Instruct-GGUF as the model in this example flow.
+
+You provide a list of tools to an LLM. These are the tools that the model can request calls to. For example:
+
+// the list of tools is model-agnostic
+[
+  {
+    "type": "function",
+    "function": {
+      "name": "get_delivery_date",
+      "description": "Get the delivery date for a customer's order",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "order_id": {
+            "type": "string"
+          }
+        },
+        "required": ["order_id"]
+      }
+    }
+  }
+]
+
+This list will be injected into the system prompt of the model depending on the model's chat template. For Qwen2.5-Instruct, this looks like:
+
+<|im_start|>system
+You are Qwen, created by Alibaba Cloud. You are a helpful assistant.
+
+# Tools
+
+You may call one or more functions to assist with the user query.
+
+You are provided with function signatures within <tools></tools> XML tags:
+<tools>
+{"type": "function", "function": {"name": "get_delivery_date", "description": "Get the delivery date for a customer's order", "parameters": {"type": "object", "properties": {"order_id": {"type": "string"}}, "required": ["order_id"]}}}
+</tools>
+
+For each function call, return a json object with function name and arguments within <tool_call></tool_call> XML tags:
+<tool_call>
+{"name": <function-name>, "arguments": <args-json-object>}
+</tool_call><|im_end|>
+
+Important: The model can only request calls to these tools because LLMs cannot directly call functions, APIs, or any other tools. They can only output text, which can then be parsed to programmatically call the functions.
+
+When prompted, the LLM can then decide to either:
+
+(a) Call one or more tools
+User: Get me the delivery date for order 123
+Model: <tool_call>
+{"name": "get_delivery_date", "arguments": {"order_id": "123"}}
+</tool_call>
+
+(b) Respond normally
+User: Hi
+Model: Hello! How can I assist you today?
+
+LM Studio parses the text output from the model into an OpenAI-compliant chat.completion response object.
+
+If the model was given access to tools, LM Studio will attempt to parse the tool calls into the response.choices[0].message.tool_calls field of the chat.completion response object.
+If LM Studio cannot parse any correctly formatted tool calls, it will simply return the response to the standard response.choices[0].message.content field.
+Note: Smaller models and models that were not trained for tool use may output improperly formatted tool calls, resulting in LM Studio being unable to parse them into the tool_calls field. This is useful for troubleshooting when you do not receive tool_calls as expected. Example of an improperly formatting Qwen2.5-Instruct tool call:
+<tool_call>
+["name": "get_delivery_date", function: "date"]
+</tool_call>
+
+Note that the brackets are incorrect, and the call does not follow the name, argument format.
+
+Your code parses the chat.completion response to check for tool calls from the model, then calls the appropriate tools with the parameters specified by the model. Your code then adds both:
+
+The model's tool call message
+The result of the tool call
+To the messages array to send back to the model
+
+# pseudocode, see examples for copy-paste snippets
+if response.has_tool_calls:
+    for each tool_call:
+        # Extract function name & args
+        function_to_call = tool_call.name     # e.g. "get_delivery_date"
+        args = tool_call.arguments            # e.g. {"order_id": "123"}
+
+        # Execute the function
+        result = execute_function(function_to_call, args)
+
+        # Add result to conversation
+        add_to_messages([
+            ASSISTANT_TOOL_CALL_MESSAGE,      # The request to use the tool
+            TOOL_RESULT_MESSAGE               # The tool's response
+        ])
+else:
+    # Normal response without tools
+    add_to_messages(response.content)
+
+The LLM is then prompted again with the updated messages array, but without access to tools. This is because:
+
+The LLM already has the tool results in the conversation history
+We want the LLM to provide a final response to the user, not call more tools
+# Example messages
+messages = [
+    {"role": "user", "content": "When will order 123 be delivered?"},
+    {"role": "assistant", "function_call": {
+        "name": "get_delivery_date",
+        "arguments": {"order_id": "123"}
+    }},
+    {"role": "tool", "content": "2024-03-15"},
+]
+response = client.chat.completions.create(
+    model="lmstudio-community/qwen2.5-7b-instruct",
+    messages=messages
+)
+
+The response.choices[0].message.content field after this call may be something like:
+
+Your order #123 will be delivered on March 15th, 2024
+
+The loop continues back at step 2 of the flow
+
+Note: This is the pedantic flow for tool use. However, you can certainly experiment with this flow to best fit your use case.
+
+
+Supported Models
+Through LM Studio, all models support at least some degree of tool use.
+
+However, there are currently two levels of support that may impact the quality of the experience: Native and Default.
+
+Models with Native tool use support will have a hammer badge in the app, and generally perform better in tool use scenarios.
+
+Native tool use support
+"Native" tool use support means that both:
+
+The model has a chat template that supports tool use (usually means the model has been trained for tool use)
+This is what will be used to format the tools array into the system prompt and tell them model how to format tool calls
+Example: Qwen2.5-Instruct chat template
+LM Studio supports that model's tool use format
+Required for LM Studio to properly input the chat history into the chat template, and parse the tool calls the model outputs into the chat.completion object
+Models that currently have native tool use support in LM Studio (subject to change):
+
+Qwen
+GGUF lmstudio-community/Qwen2.5-7B-Instruct-GGUF (4.68 GB)
+MLX mlx-community/Qwen2.5-7B-Instruct-4bit (4.30 GB)
+Llama-3.1, Llama-3.2
+GGUF lmstudio-community/Meta-Llama-3.1-8B-Instruct-GGUF (4.92 GB)
+MLX mlx-community/Meta-Llama-3.1-8B-Instruct-8bit (8.54 GB)
+Mistral
+GGUF bartowski/Ministral-8B-Instruct-2410-GGUF (4.67 GB)
+MLX mlx-community/Ministral-8B-Instruct-2410-4bit (4.67 GB GB)
+Default tool use support
+"Default" tool use support means that either:
+
+The model does not have chat template that supports tool use (usually means the model has not been trained for tool use)
+LM Studio does not currently support that model's tool use format
+Under the hood, default tool use works by:
+
+Giving models a custom system prompt and a default tool call format to use
+Converting tool role messages to the user role so that chat templates without the tool role are compatible
+Converting assistant role tool_calls into the default tool call format
+Results will vary by model.
+
+You can see the default format by running lms log stream in your terminal, then sending a chat completion request with tools to a model that doesn't have Native tool use support. The default format is subject to change.
+
+Expand to see example of default tool use format
+All models that don't have native tool use support will have default tool use support.
+
+
+Example using curl
+This example demonstrates a model requesting a tool call using the curl utility.
+
+To run this example on Mac or Linux, use any terminal. On Windows, use Git Bash.
+
+curl http://localhost:1234/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "lmstudio-community/qwen2.5-7b-instruct",
+    "messages": [{"role": "user", "content": "What dell products do you have under $50 in electronics?"}],
+    "tools": [
+      {
+        "type": "function",
+        "function": {
+          "name": "search_products",
+          "description": "Search the product catalog by various criteria. Use this whenever a customer asks about product availability, pricing, or specifications.",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "query": {
+                "type": "string",
+                "description": "Search terms or product name"
+              },
+              "category": {
+                "type": "string",
+                "description": "Product category to filter by",
+                "enum": ["electronics", "clothing", "home", "outdoor"]
+              },
+              "max_price": {
+                "type": "number",
+                "description": "Maximum price in dollars"
+              }
+            },
+            "required": ["query"],
+            "additionalProperties": false
+          }
+        }
+      }
+    ]
+  }'
+
+All parameters recognized by /v1/chat/completions will be honored, and the array of available tools should be provided in the tools field.
+
+If the model decides that the user message would be best fulfilled with a tool call, an array of tool call request objects will be provided in the response field, choices[0].message.tool_calls.
+
+The finish_reason field of the top-level response object will also be populated with "tool_calls".
+
+An example response to the above curl request will look like:
+
+{
+  "id": "chatcmpl-gb1t1uqzefudice8ntxd9i",
+  "object": "chat.completion",
+  "created": 1730913210,
+  "model": "lmstudio-community/qwen2.5-7b-instruct",
+  "choices": [
+    {
+      "index": 0,
+      "logprobs": null,
+      "finish_reason": "tool_calls",
+      "message": {
+        "role": "assistant",
+        "tool_calls": [
+          {
+            "id": "365174485",
+            "type": "function",
+            "function": {
+              "name": "search_products",
+              "arguments": "{\"query\":\"dell\",\"category\":\"electronics\",\"max_price\":50}"
+            }
+          }
+        ]
+      }
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 263,
+    "completion_tokens": 34,
+    "total_tokens": 297
+  },
+  "system_fingerprint": "lmstudio-community/qwen2.5-7b-instruct"
+}
+
+In plain english, the above response can be thought of as the model saying:
+
+"Please call the search_products function, with arguments:
+
+'dell' for the query parameter,
+'electronics' for the category parameter
+'50' for the max_price parameter
+and give me back the results"
+
+The tool_calls field will need to be parsed to call actual functions/APIs. The below examples demonstrate how.
+
+
+Examples using python
+Tool use shines when paired with program languages like python, where you can implement the functions specified in the tools field to programmatically call them when the model requests.
+
+Single-turn example
+Below is a simple single-turn (model is only called once) example of enabling a model to call a function called say_hello that prints a hello greeting to the console:
+
+single-turn-example.py
+
+from openai import OpenAI
+
+# Connect to LM Studio
+client = OpenAI(base_url="http://localhost:1234/v1", api_key="lm-studio")
+
+# Define a simple function
+def say_hello(name: str) → str:
+    print(f"Hello, {name}!")
+
+# Tell the AI about our function
+tools = [
+    {
+        "type": "function",
+        "function": {
+            "name": "say_hello",
+            "description": "Says hello to someone",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "name": {
+                        "type": "string",
+                        "description": "The person's name"
+                    }
+                },
+                "required": ["name"]
+            }
+        }
+    }
+]
+
+# Ask the AI to use our function
+response = client.chat.completions.create(
+    model="lmstudio-community/qwen2.5-7b-instruct",
+    messages=[{"role": "user", "content": "Can you say hello to Bob the Builder?"}],
+    tools=tools
+)
+
+# Get the name the AI wants to use a tool to say hello to
+# (Assumes the AI has requested a tool call and that tool call is say_hello)
+tool_call = response.choices[0].message.tool_calls[0]
+name = eval(tool_call.function.arguments)["name"]
+
+# Actually call the say_hello function
+say_hello(name) # Prints: Hello, Bob the Builder!
+
+
+Running this script from the console should yield results like:
+
+→ % python single-turn-example.py
+Hello, Bob the Builder!
+
+Play around with the name in
+
+messages=[{"role": "user", "content": "Can you say hello to Bob the Builder?"}]
+
+to see the model call the say_hello function with different names.
+
+Multi-turn example
+Now for a slightly more complex example.
+
+In this example, we'll:
+
+Enable the model to call a get_delivery_date function
+Hand the result of calling that function back to the model, so that it can fulfill the user's request in plain text
+multi-turn-example.py (click to expand)
+Running this script from the console should yield results like:
+
+→ % python multi-turn-example.py
+
+Model response requesting tool call:
+
+ChatCompletion(id='chatcmpl-wwpstqqu94go4hvclqnpwn', choices=[Choice(finish_reason='tool_calls', index=0, logprobs=None, message=ChatCompletionMessage(content=None, refusal=None, role='assistant', function_call=None, tool_calls=[ChatCompletionMessageToolCall(id='377278620', function=Function(arguments='{"order_id":"1017"}', name='get_delivery_date'), type='function')]))], created=1730916196, model='lmstudio-community/qwen2.5-7b-instruct', object='chat.completion', service_tier=None, system_fingerprint='lmstudio-community/qwen2.5-7b-instruct', usage=CompletionUsage(completion_tokens=24, prompt_tokens=223, total_tokens=247, completion_tokens_details=None, prompt_tokens_details=None))
+
+get_delivery_date function returns delivery date:
+
+2024-11-19 13:03:17.773298
+
+Final model response with knowledge of the tool call result:
+
+Your order number 1017 is scheduled for delivery on November 19, 2024, at 13:03 PM.
+
+Advanced agent example
+Building upon the principles above, we can combine LM Studio models with locally defined functions to create an "agent" - a system that pairs a language model with custom functions to understand requests and perform actions beyond basic text generation.
+
+The agent in the below example can:
+
+Open safe urls in your default browser
+Check the current time
+Analyze directories in your file system
+agent-chat-example.py (click to expand)
+Running this script from the console will allow you to chat with the agent:
+
+→ % python agent-example.py
+Assistant: Hello! I can help you open safe web links, tell you the current time, and analyze directory contents. What would you like me to do?
+(Type 'quit' to exit)
+
+You: What time is it?
+
+Assistant: The current time is 14:11:40 (EST) as of November 6, 2024.
+
+You: What time is it now?
+
+Assistant: The current time is 14:13:59 (EST) as of November 6, 2024.
+
+You: Open lmstudio.ai
+
+Assistant: The link to lmstudio.ai has been opened in your default web browser.
+
+You: What's in my current directory?
+
+Assistant: Your current directory at `/Users/matt/project` contains a total of 14 files and 8 directories. Here's the breakdown:
+
+- Files without an extension: 3
+- `.mjs` files: 2
+- `.ts` (TypeScript) files: 3
+- Markdown (`md`) file: 1
+- JSON files: 4
+- TOML file: 1
+
+The total size of these items is 1,566,990,604 bytes.
+
+You: Thank you!
+
+Assistant: You're welcome! If you have any other questions or need further assistance, feel free to ask.
+
+You:
+
+Streaming
+When streaming through /v1/chat/completions (stream=true), tool calls are sent in chunks. Function names and arguments are sent in pieces via chunk.choices[0].delta.tool_calls.function.name and chunk.choices[0].delta.tool_calls.function.arguments.
+
+For example, to call get_current_weather(location="San Francisco"), the streamed ChoiceDeltaToolCall in each chunk.choices[0].delta.tool_calls[0] object will look like:
+
+ChoiceDeltaToolCall(index=0, id='814890118', function=ChoiceDeltaToolCallFunction(arguments='', name='get_current_weather'), type='function')
+ChoiceDeltaToolCall(index=0, id=None, function=ChoiceDeltaToolCallFunction(arguments='{"', name=None), type=None)
+ChoiceDeltaToolCall(index=0, id=None, function=ChoiceDeltaToolCallFunction(arguments='location', name=None), type=None)
+ChoiceDeltaToolCall(index=0, id=None, function=ChoiceDeltaToolCallFunction(arguments='":"', name=None), type=None)
+ChoiceDeltaToolCall(index=0, id=None, function=ChoiceDeltaToolCallFunction(arguments='San Francisco', name=None), type=None)
+ChoiceDeltaToolCall(index=0, id=None, function=ChoiceDeltaToolCallFunction(arguments='"}', name=None), type=None)
+
+These chunks must be accumulated throughout the stream to form the complete function signature for execution.
+
+The below example shows how to create a simple tool-enhanced chatbot through the /v1/chat/completions streaming endpoint (stream=true).
+
+tool-streaming-chatbot.py (click to expand)
+You can chat with the bot by running this script from the console:
+
+→ % python tool-streaming-chatbot.py
+Assistant: Hi! I am an AI agent empowered with the ability to tell the current time (Type 'quit' to exit)
+
+You: Tell me a joke, then tell me the current time
+
+Assistant: Sure! Here's a light joke for you: Why don't scientists trust atoms? Because they make up everything.
+
+Now, let me get the current time for you.
+
+**Calling Tool: get_current_time**
+
+The current time is 18:49:31. Enjoy your day!
+
+
+
+Get started with LM Studio
+
+You can use openly available Large Language Models (LLMs) like Llama 3.1, Phi-3, and Gemma 2 locally in LM Studio, leveraging your computer's CPU and optionally the GPU.
+
+Double check computer meets the minimum system requirements.
+
+
+Info
+You might sometimes see terms such as open-source models or open-weights models. Different models might be released under different licenses and varying degrees of 'openness'. In order to run a model locally, you need to be able to get access to its "weights", often distributed as one or more files that end with .gguf, .safetensors etc.
+
+Getting up and running
+First, install the latest version of LM Studio. You can get it from here.
+
+Once you're all set up, you need to download your first LLM.
+
+1. Download an LLM to your computer
+Head over to the Discover tab to download models. Pick one of the curated options or search for models by search query (e.g. "Llama"). See more in-depth information about downloading models here.
+
+undefined
+The Discover tab in LM Studio
+
+2. Load a model to memory
+Head over to the Chat tab, and
+
+Open the model loader
+Select one of the models you downloaded (or sideloaded).
+Optionally, choose load configuration parameters.
+undefined
+Quickly open the model loader with cmd + L on macOS or ctrl + L on Windows/Linux
+
+What does loading a model mean?
+Loading a model typically means allocating memory to be able to accomodate the model's weights and other parameters in your computer's RAM.
+
+3. Chat!
+Once the model is loaded, you can start a back-and-forth conversation with the model in the Chat tab.
+
+Per-model Defaults
+
+Advanced
+
+You can set default load settings for each model in LM Studio.
+
+When the model is loaded anywhere in the app (including through lms load) these settings will be used.
+
+Setting default parameters for a model
+Head to the My Models tab and click on the gear ⚙️ icon to edit the model's default parameters.
+
+undefined
+Click on the gear icon to edit the default load settings for a model.
+
+This will open a dialog where you can set the default parameters for the model.
+
+You can set the default parameters for a model in this dialog.
+
+Next time you load the model, these settings will be used.
+
+Pro Tip
+Reasons to set default load parameters (not required, totally optional)
+Set a particular GPU offload settings for a given model
+Set a particular context size for a given model
+Whether or not to utilize Flash Attention for a given model
+Advanced Topics
+Changing load settings before loading a model
+When you load a model, you can optionally change the default load settings.
+
+undefined
+You can change the load settings before loading a model.
+
+Saving your changes as the default settings for a model
+If you make changes to load settings when you load a model, you can save them as the default settings for that model.
+
+undefined
+If you make changes to load settings when you load a model, you can save them as the default settings for that model.
+
+
+
+
+Prompt Template
+
+Advanced
+
+By default, LM Studio will automatically configure the prompt template based on the model file's metadata.
+
+However, you can customize the prompt template for any model.
+
+Overriding the Prompt Template for a Specific Model
+Head over to the My Models tab and click on the gear ⚙️ icon to edit the model's default parameters.
+
+Pro tip: you can jump to the My Models tab from anywhere by pressing ⌘ + 3 on Mac, or ctrl + 3 on Windows / Linux.
+Customize the Prompt Template
+💡 In most cases you don't need to change the prompt template
+When a model doesn't come with a prompt template information, LM Studio will surface the Prompt Template config box in the 🧪 Advanced Configuration sidebar.
+
+undefined
+The Prompt Template config box in the chat sidebar
+
+You can make this config box always show up by right clicking the sidebar and selecting Always Show Prompt Template.
+
+Prompt template options
+Jinja Template
+You can express the prompt template in Jinja.
+
+💡 Jinja is a templating engine used to encode the prompt template in several popular LLM model file formats.
+Manual
+You can also express the prompt template manually by specifying message role prefixes and suffixes.
+
+Reasons you might want to edit the prompt template:
+The model's metadata is incorrect, incomplete, or LM Studio doesn't recognize it
+The model does not have a prompt template in its metadata (e.g. custom or older models)
+You want to customize the prompt template for a specific use case
+
+
+
+Speculative Decoding
+
+Advanced
+
+Speculative decoding is a technique that can substantially increase the generation speed of large language models (LLMs) without reducing response quality.
+
+🔔 Speculative Decoding requires LM Studio 0.3.10 or newer, currently in beta. Get it here.
+
+What is Speculative Decoding
+Speculative decoding relies on the collaboration of two models:
+
+A larger, "main" model
+A smaller, faster "draft" model
+During generation, the draft model rapidly proposes potential tokens (subwords), which the main model can verify faster than it would take it to generate them from scratch. To maintain quality, the main model only accepts tokens that match what it would have generated. After the last accepted draft token, the main model always generates one additional token.
+
+For a model to be used as a draft model, it must have the same "vocabulary" as the main model.
+
+How to enable Speculative Decoding
+On Power User mode or higher, load a model, then select a Draft Model within the Speculative Decoding section of the chat sidebar:
+
+undefined
+The Speculative Decoding section of the chat sidebar
+
+Finding compatible draft models
+You might see the following when you open the dropdown:
+
+undefined
+No compatible draft models
+
+Try to download a lower parameter variant of the model you have loaded, if it exists. If no smaller versions of your model exist, find a pairing that does.
+
+For example:
+
+Main Model	Draft Model
+Llama 3.1 8B Instruct	Llama 3.2 1B Instruct
+Qwen 2.5 14B Instruct	Qwen 2.5 0.5B Instruct
+DeepSeek R1 Distill Qwen 32B	DeepSeek R1 Distill Qwen 1.5B
+Once you have both a main and draft model loaded, simply begin chatting to enable speculative decoding.
+
+Key factors affecting performance
+Speculative decoding speed-up is generally dependent on two things:
+
+How small and fast the draft model is compared with the main model
+How often the draft model is able to make "good" suggestions
+In simple terms, you want to choose a draft model that's much smaller than the main model. And some prompts will work better than others.
+
+An important trade-off
+Running a draft model alongside a main model to enable speculative decoding requires more computation and resources than running the main model on its own.
+
+The key to faster generation of the main model is choosing a draft model that's both small and capable enough.
+
+Here are general guidelines for the maximum draft model size you should select based on main model size (in parameters):
+
+Main Model Size	Max Draft Model Size to Expect Speed-Ups
+3B	-
+7B	1B
+14B	3B
+32B	7B
+Generally, the larger the size difference is between the main model and the draft model, the greater the speed-up.
+
+Note: if the draft model is not fast enough or effective enough at making "good" suggestions to the main model, the generation speed will not increase, and could actually decrease.
+
+Prompt dependent
+One thing you will likely notice when using speculative decoding is that the generation speed is not consistent across all prompts.
+
+The reason that the speed-up is not consistent across all prompts is because for some prompts, the draft model is less likely to make "good" suggestions to the main model.
+
+Here are some extreme examples that illustrate this concept:
+
+1. Discrete Example: Mathematical Question
+Prompt: "What is the quadratic equation formula?"
+
+In this case, both a 70B model and a 0.5B model are both very likely to give the standard formula x = (-b ± √(b² - 4ac))/(2a). So if the draft model suggested this formula as the next tokens, the target model would likely accept it, making this an ideal case for speculative decoding to work efficiently.
+
+2. Creative Example: Story Generation
+Prompt: "Write a story that begins: 'The door creaked open...'"
+
+In this case, the smaller model's draft tokens are likely be rejected more often by the larger model, as each next word could branch into countless valid possibilities.
+
+While "4" is the only reasonable answer to "2+2", this story could continue with "revealing a monster", "as the wind howled", "and Sarah froze", or hundreds of other perfectly valid continuations, making the smaller model's specific word predictions much less likely to match the larger model's choices.

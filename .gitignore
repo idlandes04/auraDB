@@ -1,0 +1,8 @@
+# Ignore Google OAuth client secret file
+client_secret_552448712490-34sevves65ek3vvi2vabfcrd3v2dopjg.apps.googleusercontent.com.json
+
+# Node modules and common system files (optional, safe to include)
+node_modules/
+.DS_Store
+.env
+*.log

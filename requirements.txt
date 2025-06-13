@@ -1,0 +1,25 @@
+# Google API for Email
+google-api-python-client
+google-auth-oauthlib
+google-auth-httplib2
+
+# LLM Interaction
+openai # For LM Studio's OpenAI-compatible server
+google-cloud-aiplatform # For Vertex AI Gemini API
+
+# Database
+SQLAlchemy
+ChromaDB
+
+# Background Jobs
+APScheduler
+
+# Web UI
+fastapi
+uvicorn
+
+# Packaging
+PyInstaller
+
+# Data validation (implicitly used by FastAPI, good to have explicit)
+pydantic

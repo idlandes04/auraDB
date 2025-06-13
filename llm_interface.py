@@ -88,36 +88,33 @@ def call_router(email_body: str) -> Optional[Dict[str, Any]]:
         return None
 
 def call_executor(email_body: str) -> Optional[Dict[str, Any]]:
-    prompt = EXECUTOR_PROMPT.replace("{{user_email_body}}", email_body)
+    current_date_str = datetime.now(timezone.utc).isoformat()
+    prompt = EXECUTOR_PROMPT.replace("{{user_email_body}}", email_body).replace("{{current_date}}", current_date_str)
     try:
         response = client.chat.completions.create(
             model=LMSTUDIO_MODEL,
             messages=[
-                {"role": "system", "content": "You are a precise and efficient AI assistant that converts user requests into structured tool calls. Respond with ONLY the JSON for the tool call."},
-                {"role": "user", "content": prompt}
+                {"role": "system", "content": prompt}
             ],
             tools=_get_openai_tools(),
             tool_choice="auto",
             temperature=0.0,
         )
 
-        if response.choices[0].message.tool_calls:
+        if response.choices[0].message and response.choices[0].message.tool_calls:
             tool_call = response.choices[0].message.tool_calls[0].function
-            arguments = json.loads(tool_call.arguments)
-            
-            # --- Known Issue / Future Improvement ---
-            # The Executor hallucinates dates because it lacks context from the Router.
-            # In a future phase, we will pass the Router's output (especially the
-            # calculated expiry_date) to the Executor as additional context.
-            # For now, we accept this as a known limitation of the current pipeline.
-            # print(f"DEBUG: Raw arguments from executor: {arguments}")
+            try:
+                arguments = json.loads(tool_call.arguments)
+            except json.JSONDecodeError:
+                print(f"[Executor JSON-Parse Error] Malformed arguments: {tool_call.arguments}")
+                return None
             
             return {
                 "name": tool_call.name,
                 "arguments": arguments
             }
         else:
-            print("[Executor] Model decided not to use any tools.")
+            print("[Executor] Model decided not to use any tools or returned an empty response.")
             return None
 
     except Exception as e:

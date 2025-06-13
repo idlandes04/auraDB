@@ -45,6 +45,14 @@ class CreateEventArguments(BaseModel):
     description: Optional[str] = Field(None, description="A detailed description of the event.")
     location: Optional[str] = Field(None, description="The physical location or meeting link for the event.")
 
+# --- New Data Transfer Object ---
+class DueItem(BaseModel):
+    """A simple, inert data structure for passing reminder info."""
+    id: int
+    type: Literal["Task", "Event"]
+    content: str # Will hold task content or event title
+    due_date: datetime
+
 # Tool definitions for LLM function-calling
 TOOLS = [
     {

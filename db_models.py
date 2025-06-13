@@ -1,7 +1,8 @@
-from sqlalchemy import create_engine, Column, Integer, String, DateTime, Boolean, Enum
+# FILE: db_models.py
+
+from sqlalchemy import Column, Integer, String, DateTime, Boolean, Enum
 from sqlalchemy.ext.declarative import declarative_base
 from datetime import datetime
-import enum
 
 Base = declarative_base()
 
@@ -11,17 +12,18 @@ class Task(Base):
     content = Column(String, nullable=False)
     due_date = Column(DateTime, nullable=True)
     permanence = Column(Enum("permanent", "non-permanent", name="permanence_enum"), nullable=False)
-    created_at = Column(DateTime, default=datetime.now)
+    created_at = Column(DateTime, default=datetime.utcnow) # Use UTC for consistency
     completed = Column(Boolean, default=False)
-    expiry_date = Column(DateTime, nullable=True) # For future self-cleaning
+    reminder_sent = Column(Boolean, default=False, nullable=False) # New field
+    expiry_date = Column(DateTime, nullable=True)
 
 class Note(Base):
     __tablename__ = 'notes'
     id = Column(Integer, primary_key=True)
     content = Column(String, nullable=False)
-    created_at = Column(DateTime, default=datetime.now)
+    created_at = Column(DateTime, default=datetime.utcnow) # Use UTC for consistency
     permanence = Column(Enum("permanent", "non-permanent", name="permanence_enum"), nullable=False)
-    expiry_date = Column(DateTime, nullable=True) # For future self-cleaning
+    expiry_date = Column(DateTime, nullable=True)
 
 class Event(Base):
     __tablename__ = 'events'
@@ -31,5 +33,6 @@ class Event(Base):
     end_time = Column(DateTime, nullable=True)
     description = Column(String, nullable=True)
     location = Column(String, nullable=True)
-    created_at = Column(DateTime, default=datetime.now)
-    expiry_date = Column(DateTime, nullable=True) # For future self-cleaning
+    created_at = Column(DateTime, default=datetime.utcnow) # Use UTC for consistency
+    reminder_sent = Column(Boolean, default=False, nullable=False) # New field
+    expiry_date = Column(DateTime, nullable=True)

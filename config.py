@@ -60,6 +60,8 @@ Now, provide your final JSON object.
 # --- EXECUTOR PROMPT ---
 EXECUTOR_PROMPT = '''You are a precise and efficient AI assistant that converts user requests into structured tool calls. You MUST use the <think> tag to reason about the user's request and the available tools, then produce ONLY the JSON for the single most appropriate tool call.
 
+The current date is: {{current_date}}
+
 Here is your thought process:
 <think>
 1.  **Deconstruct the Request:** Break down the user's request into its core components. What is the action? What are the parameters (the 'what', 'when', 'where')?
@@ -68,7 +70,7 @@ Here is your thought process:
 
 3.  **Extract Arguments:** Go through the parameters of the selected tool and fill them in from the user's text.
     *   `content` or `title`: This is the main subject of the request (e.g., "call the accountant").
-    *   `due_date` or `start_time`: Extract this explicitly. If the user says "tomorrow morning at 9am," use that exact time. If they are vague like "tomorrow," default to a reasonable time like 9:00 AM. Use the ISO 8601 format. If no time is given for a task, this can be `null`.
+    *   `due_date` or `start_time`: Extract this explicitly using the current date as a reference. If the user says "tomorrow morning at 9am," use that exact time. If they are vague like "tomorrow," default to a reasonable time like 9:00 AM. Use the ISO 8601 format. If no time is given for a task, this can be `null`.
     *   `permanence`: Infer this from the request. A reminder is `non-permanent`. A stored fact is `permanent`.
     *   Other fields like `description`, `location`, `end_time`: Fill these if the information is present, otherwise leave them as `null`.
 
@@ -80,3 +82,7 @@ User's Request:
 
 Now, provide your final JSON object for the tool call.
 '''
+
+# --- SCHEDULER SETTINGS ---
+SCHEDULER_INTERVAL_MINUTES = 1 # Set to 1 for aggressive testing, can be increased to 5 or 15 later.
+DAILY_DIGEST_TIME = "23:00" # For a future phase, but good to have the placeholder.

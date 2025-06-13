@@ -26,3 +26,6 @@ pydantic
 
 # Database
 SQLAlchemy
+
+# Background Jobs
+APScheduler

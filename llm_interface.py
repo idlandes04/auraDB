@@ -2,9 +2,11 @@ import json
 from openai import OpenAI
 from typing import Any, Dict, Optional
 from datetime import datetime, timezone
+from pydantic import ValidationError
 from config import LMSTUDIO_API_BASE, LMSTUDIO_MODEL, LMSTUDIO_API_KEY, ROUTER_PROMPT, EXECUTOR_PROMPT
-from ontology import TOOLS
+from ontology import TOOLS, CreateTaskArguments, StoreNoteArguments, CreateEventArguments
 
+# ... (rest of file is identical to your provided file, no changes needed yet)
 # --- JSON Schemas for LM Studio Structured Output ---
 ROUTER_SCHEMA = {
     "type": "object",
@@ -22,22 +24,26 @@ ROUTER_SCHEMA = {
             "format": "date-time",
         }
     },
-    "required": ["routing_decision", "permanence", "expiry_date"]
+    "required": ["routing_decision", "permanence"] # expiry_date is not always required
 }
 
 
 client = OpenAI(base_url=LMSTUDIO_API_BASE, api_key=LMSTUDIO_API_KEY)
 
-def _safe_json_loads(content):
+def _safe_json_loads(content: Optional[str]) -> Dict[str, Any]:
     if not content:
         return {}
     try:
-        if isinstance(content, str):
-            json_start_index = content.find('{')
-            if json_start_index == -1:
-                return {}
-            return json.loads(content[json_start_index:])
-        return content
+        # The model sometimes wraps the JSON in markdown backticks
+        if content.strip().startswith("```json"):
+            content = content.strip()[7:-3]
+        
+        json_start_index = content.find('{')
+        if json_start_index == -1:
+            return {}
+        # Find the matching closing brace
+        json_end_index = content.rfind('}') + 1
+        return json.loads(content[json_start_index:json_end_index])
     except Exception as e:
         print(f"[JSON Parse Error] Content was: '{content}'. Error: {e}")
         return {}
@@ -56,12 +62,9 @@ def _get_openai_tools():
     return tools
 
 def call_router(email_body: str) -> Optional[Dict[str, Any]]:
-    # **FIX:** Inject the current date into the prompt for context-aware responses.
     current_date_str = datetime.now(timezone.utc).isoformat()
-    prompt = ROUTER_PROMPT.replace("{{user_email_body}}", email_body)
-    prompt = prompt.replace("{{current_date}}", current_date_str)
+    prompt = ROUTER_PROMPT.replace("{{user_email_body}}", email_body).replace("{{current_date}}", current_date_str)
 
-    # Wrap the schema in the required nested structure from the API docs.
     response_format_wrapper = {
         "type": "json_schema",
         "json_schema": {
@@ -100,8 +103,15 @@ def call_executor(email_body: str) -> Optional[Dict[str, Any]]:
 
         if response.choices[0].message.tool_calls:
             tool_call = response.choices[0].message.tool_calls[0].function
-            # The arguments are returned as a string, so we need to load them into a dict
             arguments = json.loads(tool_call.arguments)
+            
+            # --- Known Issue / Future Improvement ---
+            # The Executor hallucinates dates because it lacks context from the Router.
+            # In a future phase, we will pass the Router's output (especially the
+            # calculated expiry_date) to the Executor as additional context.
+            # For now, we accept this as a known limitation of the current pipeline.
+            # print(f"DEBUG: Raw arguments from executor: {arguments}")
+            
             return {
                 "name": tool_call.name,
                 "arguments": arguments

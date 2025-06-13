@@ -23,3 +23,6 @@ PyInstaller
 
 # Data validation (implicitly used by FastAPI, good to have explicit)
 pydantic
+
+# Database
+SQLAlchemy

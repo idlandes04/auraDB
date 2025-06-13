@@ -1,56 +1,104 @@
-# Handles all Gmail API interactions
+import os
 import base64
+from email.mime.text import MIMEText
+from google.auth.transport.requests import Request
+from google.oauth2.credentials import Credentials
+from google_auth_oauthlib.flow import InstalledAppFlow
+from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
-from auth_setup import get_service
+from typing import Optional, Tuple
+from config import CREDENTIALS_PATH, TOKEN_PATH, GMAIL_SCOPES, USER_EMAIL
 
-def get_latest_email_body():
+def _get_service():
+    """Authenticates and builds the Gmail API service."""
+    creds = None
+    if os.path.exists(TOKEN_PATH):
+        creds = Credentials.from_authorized_user_file(TOKEN_PATH, GMAIL_SCOPES)
+    
+    if not creds or not creds.valid:
+        if creds and creds.expired and creds.refresh_token:
+            creds.refresh(Request())
+        else:
+            flow = InstalledAppFlow.from_client_secrets_file(CREDENTIALS_PATH, GMAIL_SCOPES)
+            creds = flow.run_local_server(port=0)
+        
+        with open(TOKEN_PATH, 'w') as token:
+            token.write(creds.to_json())
+            
+    return build('gmail', 'v1', credentials=creds)
+
+def get_latest_email() -> Optional[dict]:
     """
-    Fetches the body of the latest unread email.
-    Returns the email body as a string, or None if no unread email is found.
+
+    Fetches the latest unread email from the specified user.
+    Returns the full message object, or None.
     """
     try:
-        service = get_service()
-        # List unread messages in the INBOX, limit to 1 result
-        results = service.users().messages().list(userId='me', labelIds=['INBOX'], q='is:unread', maxResults=1).execute()
+        service = _get_service()
+        query = f'is:unread from:{USER_EMAIL} in:inbox'
+        results = service.users().messages().list(userId='me', q=query, maxResults=1).execute()
         messages = results.get('messages', [])
 
         if not messages:
-            print('No unread emails found.')
             return None
 
         msg_id = messages[0]['id']
         msg = service.users().messages().get(userId='me', id=msg_id, format='full').execute()
-
-        # Extract sender and subject for context
-        headers = {h['name']: h['value'] for h in msg['payload']['headers']}
-        sender = headers.get('From', 'Unknown Sender')
-        subject = headers.get('Subject', '(no subject)')
-        print(f"Processing email from: {sender}\nSubject: {subject}")
-
-        # Extract body (plain text preferred)
-        body = ""
-        if 'parts' in msg['payload']:
-            for part in msg['payload']['parts']:
-                if part.get('mimeType') == 'text/plain':
-                    data = part['body'].get('data')
-                    if data:
-                        body = base64.urlsafe_b64decode(data).decode('utf-8')
-                        break
-        # Fallback if no plain text part is found
-        if not body:
-            data = msg['payload']['body'].get('data')
-            if data:
-                body = base64.urlsafe_b64decode(data).decode('utf-8')
-
-        # Mark as read so it isn't processed again
-        service.users().messages().modify(userId='me', id=msg_id, body={'removeLabelIds': ['UNREAD']}).execute()
-        print("Email marked as read.")
-
-        return body.strip()
+        return msg
 
     except HttpError as error:
         print(f'Gmail API error: {error}')
         return None
-    except Exception as e:
-        print(f'Error fetching email: {e}')
-        return None
+
+def parse_email_body(msg: dict) -> str:
+    """Extracts the plain text body from an email message object."""
+    body = ""
+    if 'parts' in msg['payload']:
+        for part in msg['payload']['parts']:
+            if part.get('mimeType') == 'text/plain':
+                data = part['body'].get('data')
+                if data:
+                    body = base64.urlsafe_b64decode(data).decode('utf-8')
+                    break
+    if not body: # Fallback for simple emails
+        data = msg['payload']['body'].get('data')
+        if data:
+            body = base64.urlsafe_b64decode(data).decode('utf-8')
+    return body.strip()
+
+def send_reply(original_msg: dict, reply_text: str):
+    """Sends a reply to an original email, maintaining the thread."""
+    try:
+        service = _get_service()
+        headers = {h['name']: h['value'] for h in original_msg['payload']['headers']}
+        
+        to = headers.get('From', '')
+        subject = headers.get('Subject', '(no subject)')
+        message_id = headers.get('Message-ID', '')
+        thread_id = original_msg['threadId']
+
+        reply = MIMEText(reply_text)
+        reply['To'] = to
+        reply['Subject'] = 'Re: ' + subject
+        reply['In-Reply-To'] = message_id
+        reply['References'] = message_id
+        
+        raw = base64.urlsafe_b64encode(reply.as_bytes()).decode()
+        body = {'raw': raw, 'threadId': thread_id}
+        
+        service.users().messages().send(userId='me', body=body).execute()
+        print(f"Reply sent to thread {thread_id}.")
+
+    except HttpError as error:
+        print(f"An error occurred sending reply: {error}")
+
+def archive_email(msg_id: str):
+    """Marks an email as read and archives it by removing the INBOX label."""
+    try:
+        service = _get_service()
+        # Remove UNREAD and INBOX labels
+        body = {'removeLabelIds': ['UNREAD', 'INBOX']}
+        service.users().messages().modify(userId='me', id=msg_id, body=body).execute()
+        print(f"Email {msg_id} marked as read and archived.")
+    except HttpError as error:
+        print(f"An error occurred archiving email: {error}")

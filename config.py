@@ -1,4 +1,20 @@
 # All settings, API keys, file paths, model IDs, and advanced prompts
+import os
+
+# --- FILE PATHS ---
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+CREDENTIALS_PATH = os.path.join(BASE_DIR, 'credentials.json')
+TOKEN_PATH = os.path.join(BASE_DIR, 'token.json')
+DB_PATH = os.path.join(BASE_DIR, 'aura_db.sqlite')
+LOG_PATH = os.path.join(BASE_DIR, 'aura_actions.log')
+
+# --- EMAIL SETTINGS ---
+# The email address Aura sends from and receives to.
+AURA_EMAIL = "ethanxsteele@gmail.com" 
+# Your personal email that you will send commands from.
+USER_EMAIL = "idlandes04@gmail.com" 
+# Full permissions: read, compose, send, and modify (archive, delete).
+GMAIL_SCOPES = ['https://www.googleapis.com/auth/gmail.modify']
 
 # --- LLM SETTINGS ---
 LMSTUDIO_API_BASE = "http://192.168.5.116:1234/v1"
@@ -63,4 +79,4 @@ User's Request:
 "{{user_email_body}}"
 
 Now, provide your final JSON object for the tool call.
-''' 
+'''

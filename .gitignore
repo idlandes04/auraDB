@@ -1,99 +1,35 @@
-# --- Python ---
-# Byte-compiled / optimized / C extensions
-__pycache__/
-*.py[cod]
-*$py.class
-*.so
-
-# C extensions
-*.so
-
-# Distribution / packaging
-.Python
-build/
-develop-eggs/
-dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
-pip-wheel-metadata/
-share/python-wheels/
-*.egg-info/
-.installed.cfg
-*.egg
-MANIFEST
-
-# PyInstaller
-#  Usually these files are created by pyinstaller, if you tweak paths, make sure they are covered.
-*.spec
-dist/
-build/
-
-# Installer logs
-pip-log.txt
-pip-delete-this-directory.txt
-
-# Unit test / coverage reports
-htmlcov/
-.tox/
-.nox/
-.coverage
-.coverage.*
-.cache
-nosetests.xml
-coverage.xml
-*.cover
-*.py,cover
-.hypothesis/
-.pytest_cache/
-cover/
-
-# Environments
-.env
-.venv
-env/
-venv/
-ENV/
-env.bak
-venv.bak
-
-# --- Aura Project Specific ---
-# Google OAuth credentials
+# --- Secrets and Credentials ---
+# Never commit your API credentials or authentication tokens!
 credentials.json
 token.json
 
-# Database and Log files
-*.sqlite
-*.sqlite3
-*.log
+# --- Personal Data ---
+# The database contains your private notes, tasks, and events.
+aura_db.sqlite
+aura_db.sqlite-journal
+
+# Log files can contain personal information from processed emails.
+aura_actions.log
+
+# --- Python ---
+# Byte-compiled / optimized / DLL files
+.__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environment
+# This contains your local python installation and packages.
+# It should be regenerated from requirements.txt, not committed.
+.venv/
+venv/
+ENV/
+env/
+virtualenv/
 
 # --- IDE / Editor ---
-# VS Code
 .vscode/
-
-# PyCharm
 .idea/
 
-# Sublime Text
-*.sublime-project
-*.sublime-workspace
-
-# --- OS Specific ---
-# Mac
+# --- OS-specific ---
 .DS_Store
-.AppleDouble
-.LSOverride
-
-# Windows
 Thumbs.db
-ehthumbs.db
-Desktop.ini
-
-# Linux
-*~

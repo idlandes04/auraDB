@@ -1,7 +1,8 @@
-# Ignore Google OAuth client secret file
-client_secret_552448712490-34sevves65ek3vvi2vabfcrd3v2dopjg.apps.googleusercontent.com.json
+# Ignore Google OAuth credential files
+credentials.json
+token.json
 
-# Node modules and common system files (optional, safe to include)
+# Node modules and common system files
 node_modules/
 .DS_Store
 .env

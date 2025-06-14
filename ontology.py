@@ -7,7 +7,7 @@ from datetime import datetime
 # --- Core Data Structures ---
 
 class Context(BaseModel):
-    model_config = ConfigDict(from_attributes=True) # FIX: Allow creation from SQLAlchemy objects
+    model_config = ConfigDict(from_attributes=True)
 
     id: int
     name: str
@@ -16,7 +16,7 @@ class Context(BaseModel):
     last_updated_utc: datetime
 
 class Task(BaseModel):
-    model_config = ConfigDict(from_attributes=True) # FIX: Allow creation from SQLAlchemy objects
+    model_config = ConfigDict(from_attributes=True)
 
     content: str
     due_date: Optional[datetime] = None
@@ -26,7 +26,7 @@ class Task(BaseModel):
     context_id: int
 
 class Note(BaseModel):
-    model_config = ConfigDict(from_attributes=True) # FIX: Allow creation from SQLAlchemy objects
+    model_config = ConfigDict(from_attributes=True)
 
     content: str
     created_at: datetime = Field(default_factory=datetime.utcnow)
@@ -34,7 +34,7 @@ class Note(BaseModel):
     context_id: int
 
 class Event(BaseModel):
-    model_config = ConfigDict(from_attributes=True) # FIX: Allow creation from SQLAlchemy objects
+    model_config = ConfigDict(from_attributes=True)
 
     title: str
     start_time: datetime
@@ -52,13 +52,11 @@ class GetOrCreateContextArguments(BaseModel):
 class CreateTaskArguments(BaseModel):
     content: str = Field(..., description="The content or description of the task.")
     due_date: Optional[datetime] = Field(None, description="The date and time the task is due. Should be in ISO 8601 format.")
-    permanence: Optional[Literal["permanent", "non-permanent"]] = Field(None, description="Is the task a temporary reminder or a long-term goal?")
     context_id: Optional[int] = Field(None, description="The ID of the existing context to associate this task with.")
     new_context_name: Optional[str] = Field(None, description="If no existing context matches, provide a new, concise name for a context to be created.")
 
 class StoreNoteArguments(BaseModel):
     content: str = Field(..., description="The full content of the note to be stored.")
-    permanence: Optional[Literal["permanent", "non-permanent"]] = Field(None, description="Is this a permanent piece of information or a fleeting thought?")
     context_id: Optional[int] = Field(None, description="The ID of the existing context to associate this note with.")
     new_context_name: Optional[str] = Field(None, description="If no existing context matches, provide a new, concise name for a context to be created.")
 
@@ -71,6 +69,11 @@ class CreateEventArguments(BaseModel):
     context_id: Optional[int] = Field(None, description="The ID of the existing context to associate this event with.")
     new_context_name: Optional[str] = Field(None, description="If no existing context matches, provide a new, concise name for a context to be created.")
 
+# --- NEW PYDANTIC MODEL FOR PHASE 6 GROUNDWORK ---
+class QueryContextArguments(BaseModel):
+    context_id: int = Field(..., description="The ID of the context to query for more information.")
+    query_text: str = Field(..., description="The user's specific question about the context.")
+
 # --- New Data Transfer Object ---
 class DueItem(BaseModel):
     id: int
@@ -79,7 +82,6 @@ class DueItem(BaseModel):
     due_date: datetime
 
 # --- Tool definitions for LLM function-calling ---
-# Note: These are now split logically. The first tool is for Step 1, the rest for Step 2.
 TOOLS_STEP_1_CONTEXT = [
     {
         "name": "get_or_create_context",
@@ -104,4 +106,10 @@ TOOLS_STEP_2_ACTION = [
         "description": "Create a calendar event, appointment, or meeting for the user. Use for items with a specific start and end time.",
         "parameters": CreateEventArguments.model_json_schema(),
     },
+    # --- NEW TOOL FOR PHASE 6 GROUNDWORK ---
+    {
+        "name": "query_context",
+        "description": "Retrieves all known information (notes, tasks, events) about a specific context to answer a user's question.",
+        "parameters": QueryContextArguments.model_json_schema(),
+    }
 ]

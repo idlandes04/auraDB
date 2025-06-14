@@ -7,6 +7,7 @@ token.json
 # The database contains your private notes, tasks, and events.
 aura_db.sqlite
 aura_db.sqlite-journal
+aura_chroma_db
 
 # Log files can contain personal information from processed emails.
 aura_actions.log

@@ -2,6 +2,7 @@
 
 import os
 import base64
+import logging
 from email.mime.text import MIMEText
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
@@ -11,7 +12,8 @@ from googleapiclient.errors import HttpError
 from typing import Optional
 from config import CREDENTIALS_PATH, TOKEN_PATH, GMAIL_SCOPES, USER_EMAIL, AURA_EMAIL
 
-# (The _get_service function remains the same)
+logger = logging.getLogger(__name__)
+
 def _get_service():
     """Authenticates and builds the Gmail API service."""
     creds = None
@@ -30,7 +32,6 @@ def _get_service():
             
     return build('gmail', 'v1', credentials=creds)
 
-# (get_latest_email remains the same)
 def get_latest_email() -> Optional[dict]:
     """Fetches the latest unread email from the specified user."""
     try:
@@ -47,10 +48,9 @@ def get_latest_email() -> Optional[dict]:
         return msg
 
     except HttpError as error:
-        print(f'Gmail API error: {error}')
+        logger.error("Gmail API error while fetching email: %s", error)
         return None
 
-# (parse_email_body remains the same)
 def parse_email_body(msg: dict) -> str:
     """Extracts the plain text body from an email message object."""
     body = ""
@@ -67,7 +67,6 @@ def parse_email_body(msg: dict) -> str:
             body = base64.urlsafe_b64decode(data).decode('utf-8')
     return body.strip()
 
-# (send_reply remains the same)
 def send_reply(original_msg: dict, reply_text: str):
     """Sends a reply to an original email, maintaining the thread."""
     try:
@@ -89,23 +88,21 @@ def send_reply(original_msg: dict, reply_text: str):
         body = {'raw': raw, 'threadId': thread_id}
         
         service.users().messages().send(userId='me', body=body).execute()
-        print(f"Reply sent to thread {thread_id}.")
+        logger.info("Reply sent to thread %s.", thread_id)
 
     except HttpError as error:
-        print(f"An error occurred sending reply: {error}")
+        logger.error("An error occurred sending reply: %s", error)
 
-# (archive_email remains the same)
 def archive_email(msg_id: str):
     """Marks an email as read and archives it by removing the INBOX label."""
     try:
         service = _get_service()
         body = {'removeLabelIds': ['UNREAD', 'INBOX']}
         service.users().messages().modify(userId='me', id=msg_id, body=body).execute()
-        print(f"Email {msg_id} marked as read and archived.")
+        logger.info("Email %s marked as read and archived.", msg_id)
     except HttpError as error:
-        print(f"An error occurred archiving email: {error}")
+        logger.error("An error occurred archiving email: %s", error)
 
-# --- New Function ---
 def send_system_email(subject: str, body_text: str):
     """Sends a new email from Aura to the user, not as a reply."""
     try:
@@ -119,7 +116,7 @@ def send_system_email(subject: str, body_text: str):
         body = {'raw': raw_message}
         
         service.users().messages().send(userId='me', body=body).execute()
-        print(f"System email sent to {USER_EMAIL} with subject: '{subject}'")
+        logger.info("System email sent to %s with subject: '%s'", USER_EMAIL, subject)
 
     except HttpError as error:
-        print(f"An error occurred sending system email: {error}")
+        logger.error("An error occurred sending system email: %s", error)

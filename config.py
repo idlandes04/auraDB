@@ -17,10 +17,18 @@ USER_EMAIL = "idlandes04@gmail.com"
 GMAIL_SCOPES = ['https://www.googleapis.com/auth/gmail.modify']
 
 # --- LLM SETTINGS ---
+# Local
 LMSTUDIO_API_BASE = "http://192.168.5.116:1234/v1"
 LMSTUDIO_MODEL = "qwen3-8b" 
 QWEN3_EMBEDDING_MODEL_ID = "text-embedding-qwen3-embedding-8b"
 LMSTUDIO_API_KEY = "lm-studio"
+LOCAL_API_TIMEOUT_SECONDS = 45
+
+# Cloud (Vertex AI) - Using stable model versions
+VERTEX_PROJECT_ID = "firm-moonlight-462817-v2"
+VERTEX_LOCATION = "us-central1"
+VERTEX_MODEL_FAILOVER = "gemini-2.5-flash-preview-05-20"
+VERTEX_MODEL_SUMMARIZATION = "gemini-2.5-flash-preview-05-20"
 
 # --- ROUTER PROMPT ---
 ROUTER_PROMPT = '''You are a hyper-efficient, silent Triage and Routing agent. Your SOLE purpose is to analyze the user's text and classify it by following a strict thought process. You MUST use the <think> tag to reason step-by-step and then produce a single, valid JSON object as your final answer. Do not add any other conversational text.
@@ -85,7 +93,7 @@ Your thought process:
 3.  **Make a Decision:**
     *   Is one of the provided contexts a perfect match? If yes, select its `id`.
     *   If none of the contexts are a good match, I must create a new one. The new context name should be a concise, sensible title for the user's request (e.g., "Project Phoenix", "Health & Fitness", "Guitar Practice").
-4.  **Select the Final Tool:** Based on the user's request ("remind me", "note", "schedule"), choose the correct final tool: `create_task`, `store_note`, or `create_event`.
+4.  **Select the Final Tool:** Based on the user's request ("remind me", "note", "schedule", "what do you know about..."), choose the correct final tool: `create_task`, `store_note`, `create_event`, or `query_context`.
 5.  **Extract Arguments:**
     *   Fill in all the arguments for the chosen tool (`content`, `due_date`, etc.) from the user's text.
     *   Crucially, set the `context_id` argument to the ID of the context you chose in step 3. If you are creating a new context, set `context_id` to `null` and provide the new name in `new_context_name`.
@@ -98,8 +106,29 @@ User's Request:
 Potential Context Matches:
 {{context_matches}}
 
-Now, provide your final JSON object for the tool call (`create_task`, `store_note`, or `create_event`).
+Now, provide your final JSON object for the tool call.
 '''
+
+# --- NEW PROMPT FOR PHASE 6 GROUNDWORK ---
+EXECUTOR_PROMPT_QUERY = """You are an information retrieval and synthesis agent. The user is asking a question about a specific context. Your job is to call the `query_context` tool with the appropriate context ID to retrieve all relevant information.
+
+Your thought process:
+<think>
+1.  **Review the User's Request:** "{{user_email_body}}"
+2.  **Analyze the Context Matches:** I have been given the following potential contexts: {{context_matches}}.
+3.  **Identify the Target Context:** The user's request is clearly about one of the provided contexts. I will select its `id`. If no context seems to match, I cannot answer the question.
+4.  **Call the Tool:** I will call the `query_context` tool, passing the selected `context_id`.
+</think>
+
+User's Request:
+"{{user_email_body}}"
+
+Potential Context Matches:
+{{context_matches}}
+
+Now, provide your final JSON object for the `query_context` tool call.
+"""
+
 
 # --- REPLY GENERATOR PROMPT ---
 REPLY_GENERATOR_PROMPT = '''/nothink You are Aura, a helpful AI assistant. Your job is to write a short, natural, and friendly email reply.
@@ -118,6 +147,15 @@ You MUST NOT include `<think>` tags, `Your Reply:`, or any other meta-text in yo
 /nothink
 '''
 
+# --- SUMMARIZER PROMPT ---
+CONTEXT_SUMMARIZER_PROMPT = """You are a meticulous and concise AI summarizer. Your task is to review a collection of notes, tasks, and events related to a single project or context. Synthesize this information into a single, dense paragraph. The summary should capture the main goals, key information, current status, and any upcoming deadlines. Do not use markdown or lists. Produce only the summary paragraph.
+
+Here is the raw data for the context:
+---
+{{context_data}}
+---
+"""
+
 # --- SCHEDULER SETTINGS ---
-SCHEDULER_INTERVAL_MINUTES = 5  
-DAILY_DIGEST_TIME = "23:00" # Time to send the daily digest email (24-hour format, e.g., "23:00" for 11 PM)
+SCHEDULER_INTERVAL_MINUTES = 1
+SUMMARIZATION_INTERVAL_MINUTES = 60 

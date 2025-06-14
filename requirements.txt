@@ -5,7 +5,7 @@ google-auth-httplib2
 
 # LLM Interaction
 openai # For LM Studio's OpenAI-compatible server
-google-cloud-aiplatform # For Vertex AI Gemini API
+google-cloud-aiplatform
 
 # Database
 SQLAlchemy
@@ -14,12 +14,17 @@ chromadb
 # Background Jobs
 APScheduler
 
-# Web UI
+# Data validation (implicitly used by FastAPI, good to have explicit)
+pydantic
+
+# Web UI (Optional for now)
 fastapi
 uvicorn
 
-# Packaging
+# Packaging (Optional for now)
 PyInstaller
 
-# Data validation (implicitly used by FastAPI, good to have explicit)
-pydantic
+# --- DEPENDENCY CONFLICT RESOLUTION ---
+# Pin protobuf to a version compatible with both chromadb's dependencies
+# and the google-cloud libraries to resolve the "Descriptors cannot be created directly" error.
+protobuf==3.20.3

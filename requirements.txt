@@ -9,7 +9,7 @@ google-cloud-aiplatform # For Vertex AI Gemini API
 
 # Database
 SQLAlchemy
-ChromaDB
+chromadb
 
 # Background Jobs
 APScheduler
@@ -23,9 +23,3 @@ PyInstaller
 
 # Data validation (implicitly used by FastAPI, good to have explicit)
 pydantic
-
-# Database
-SQLAlchemy
-
-# Background Jobs
-APScheduler

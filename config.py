@@ -1,3 +1,5 @@
+# FILE: config.py
+
 # All settings, API keys, file paths, model IDs, and advanced prompts
 import os
 
@@ -7,27 +9,24 @@ CREDENTIALS_PATH = os.path.join(BASE_DIR, 'credentials.json')
 TOKEN_PATH = os.path.join(BASE_DIR, 'token.json')
 DB_PATH = os.path.join(BASE_DIR, 'aura_db.sqlite')
 LOG_PATH = os.path.join(BASE_DIR, 'aura_actions.log')
+CHROMA_DB_PATH = os.path.join(BASE_DIR, 'aura_chroma_db')
 
 # --- EMAIL SETTINGS ---
-# The email address Aura sends from and receives to.
 AURA_EMAIL = "ethanxsteele@gmail.com" 
-# Your personal email that you will send commands from.
 USER_EMAIL = "idlandes04@gmail.com" 
-# Full permissions: read, compose, send, and modify (archive, delete).
 GMAIL_SCOPES = ['https://www.googleapis.com/auth/gmail.modify']
 
 # --- LLM SETTINGS ---
 LMSTUDIO_API_BASE = "http://192.168.5.116:1234/v1"
-LMSTUDIO_MODEL = "qwen3-14b"
-LMSTUDIO_API_KEY = "lm-studio" # Not used for auth, but required by OpenAI client
-
+LMSTUDIO_MODEL = "qwen3-8b" 
+QWEN3_EMBEDDING_MODEL_ID = "text-embedding-qwen3-embedding-8b"
+LMSTUDIO_API_KEY = "lm-studio"
 
 # --- ROUTER PROMPT ---
 ROUTER_PROMPT = '''You are a hyper-efficient, silent Triage and Routing agent. Your SOLE purpose is to analyze the user's text and classify it by following a strict thought process. You MUST use the <think> tag to reason step-by-step and then produce a single, valid JSON object as your final answer. Do not add any other conversational text.
 
 The current date is: {{current_date}}
 
-Here is your thought process:
 <think>
 1.  **Analyze the User's Goal:** What is the fundamental intent of the user's request? Is it to remember something (task/reminder), store information (note), or schedule an appointment (event)?
 
@@ -35,13 +34,13 @@ Here is your thought process:
     *   If the goal is simple data entry (creating a single task, note, or event), the decision is `local_processing`.
     *   If the goal requires complex reasoning, summarization across multiple items, analysis of past data, or strategic planning (e.g., "summarize my notes on Project X"), the decision is `cloud_synthesis`.
 
-3.  **Determine Permanence (`permanence`):**
-    *   Scan for keywords indicating temporary nature: "remind me," "temporary," "for now," "today," "tomorrow." If found, the permanence is `non-permanent`.
-    *   A task that is actionable and has a clear completion state (e.g., "call the accountant," "buy milk") is almost always `non-permanent`.
-    *   If the request is to store information, an idea, a goal, a key piece of data for a project, or anything without a clear "done" state, the permanence is `permanent`.
+3.  **Determine Permanence (`permanence`):** This is a critical step.
+    *   `permanent`: Information that is part of a larger body of knowledge. This includes ideas, facts, goals, project details (like deadlines or specifications), and general information to be stored indefinitely. A project deadline is `permanent` because the fact that the project had a deadline is important information, even after the date has passed.
+    *   `non-permanent`: Information that is truly disposable and has no value after it's acted upon. This includes simple, temporary reminders like "remind me to call Mom tomorrow" or "add milk to the shopping list." These items can be safely purged after they expire.
+    *   Scan for keywords, but use the subject matter as the primary guide. "Deadline for Aura V5" is project-related, so it's `permanent`. "Remind me to take out the trash" is disposable, so it's `non-permanent`.
 
 4.  **Calculate Expiry (`expiry_date`):**
-    *   This field is ONLY for `non-permanent` items. If permanence is `permanent`, this MUST be `null`.
+    *   This field is ONLY for `non-permanent` items. If permanence is `permanent`, this field MUST be `null`.
     *   If `non-permanent`, calculate an expiry date in ISO 8601 format (YYYY-MM-DDTHH:MM:SSZ).
     *   Use the current date as the reference.
     *   "tomorrow morning" expires at `YYYY-MM-(DD+1)T12:00:00Z`.
@@ -56,33 +55,69 @@ User's Text:
 Now, provide your final JSON object.
 '''
 
+# --- EXECUTOR PROMPTS ---
+EXECUTOR_PROMPT_CONTEXT_ANALYSIS = '''You are a Semantic Analysis Engine. Your job is to understand the user's request and determine the correct "Context" or "Project" it belongs to.
 
-# --- EXECUTOR PROMPT ---
-EXECUTOR_PROMPT = '''You are a precise and efficient AI assistant that converts user requests into structured tool calls. You MUST use the <think> tag to reason about the user's request and the available tools, then produce ONLY the JSON for the single most appropriate tool call.
+You have one tool: `get_or_create_context`.
 
-The current date is: {{current_date}}
-
-Here is your thought process:
+Your thought process:
 <think>
-1.  **Deconstruct the Request:** Break down the user's request into its core components. What is the action? What are the parameters (the 'what', 'when', 'where')?
-
-2.  **Select the Best Tool:** Review the list of available tools. Which tool's `name` and `description` best matches the user's action? For "remind me," "task," or "to-do," the tool is `create_task`. For "note," "remember that," or "save this idea," the tool is `store_note`. For "schedule," "appointment," or "meeting," the tool is `create_event`.
-
-3.  **Extract Arguments:** Go through the parameters of the selected tool and fill them in from the user's text.
-    *   `content` or `title`: This is the main subject of the request (e.g., "call the accountant").
-    *   `due_date` or `start_time`: Extract this explicitly using the current date as a reference. If the user says "tomorrow morning at 9am," use that exact time. If they are vague like "tomorrow," default to a reasonable time like 9:00 AM. Use the ISO 8601 format. If no time is given for a task, this can be `null`.
-    *   `permanence`: Infer this from the request. A reminder is `non-permanent`. A stored fact is `permanent`.
-    *   Other fields like `description`, `location`, `end_time`: Fill these if the information is present, otherwise leave them as `null`.
-
-4.  **Construct the Final JSON:** Assemble the extracted information into a valid JSON object that matches the tool's schema. Ensure all required fields are present.
+1.  Read the user's request carefully.
+2.  What is the core subject? Is it about 'Health', 'Guitar', 'Work Project A', a 'Shopping List'?
+3.  Formulate a concise query that captures this core subject. For "Remind me to practice my scales on the guitar", the query should be "guitar practice". For "Add milk to the list", the query should be "shopping list".
+4.  Call the `get_or_create_context` tool with this `query`.
 </think>
 
 User's Request:
 "{{user_email_body}}"
 
-Now, provide your final JSON object for the tool call.
+Now, provide ONLY the JSON for the `get_or_create_context` tool call.
+'''
+
+EXECUTOR_PROMPT_FINAL_ACTION = '''You are a precise and efficient AI assistant that converts user requests into a final, structured tool call. You have been provided with a list of potentially relevant "Contexts" (projects/categories).
+
+The current date is: {{current_date}}
+
+Your thought process:
+<think>
+1.  **Review the User's Request:** "{{user_email_body}}"
+2.  **Analyze the Context Matches:** I have been given the following potential contexts: {{context_matches}}.
+3.  **Make a Decision:**
+    *   Is one of the provided contexts a perfect match? If yes, select its `id`.
+    *   If none of the contexts are a good match, I must create a new one. The new context name should be a concise, sensible title for the user's request (e.g., "Project Phoenix", "Health & Fitness", "Guitar Practice").
+4.  **Select the Final Tool:** Based on the user's request ("remind me", "note", "schedule"), choose the correct final tool: `create_task`, `store_note`, or `create_event`.
+5.  **Extract Arguments:**
+    *   Fill in all the arguments for the chosen tool (`content`, `due_date`, etc.) from the user's text.
+    *   Crucially, set the `context_id` argument to the ID of the context you chose in step 3. If you are creating a new context, set `context_id` to `null` and provide the new name in `new_context_name`.
+6.  **Construct Final JSON:** Assemble the final tool call based on the user's intent. All dates must be in ISO 8601 format.
+</think>
+
+User's Request:
+"{{user_email_body}}"
+
+Potential Context Matches:
+{{context_matches}}
+
+Now, provide your final JSON object for the tool call (`create_task`, `store_note`, or `create_event`).
+'''
+
+# --- REPLY GENERATOR PROMPT ---
+REPLY_GENERATOR_PROMPT = '''/nothink You are Aura, a helpful AI assistant. Your job is to write a short, natural, and friendly email reply.
+Your reply MUST be based on the user's original request and the action the system took.
+You MUST NOT include `<think>` tags, `Your Reply:`, or any other meta-text in your output. Your output should be ONLY the text of the reply itself.
+
+### CONTEXT ###
+
+[USER'S ORIGINAL REQUEST]:
+"{{user_request}}"
+
+[SYSTEM ACTION CONFIRMATION]:
+"{{system_confirmation}}"
+
+### END CONTEXT ###
+/nothink
 '''
 
 # --- SCHEDULER SETTINGS ---
-SCHEDULER_INTERVAL_MINUTES = 1 # Set to 1 for aggressive testing, can be increased to 5 or 15 later.
-DAILY_DIGEST_TIME = "23:00" # For a future phase, but good to have the placeholder.
+SCHEDULER_INTERVAL_MINUTES = 5  
+DAILY_DIGEST_TIME = "23:00" # Time to send the daily digest email (24-hour format, e.g., "23:00" for 11 PM)
